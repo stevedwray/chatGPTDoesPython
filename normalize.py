@@ -66,7 +66,10 @@ def read_yaml_file(filename):
 
 def validate_patterns(patterns):
     validation_errors = []
-
+    
+    # Compile the regular expression patterns only once
+    compiled_patterns = {}
+    
     # Iterate over each pattern and perform validation checks
     for i, pattern in enumerate(patterns):
         # Check if 'column' and 'patterns' fields are present in the pattern
@@ -84,16 +87,17 @@ def validate_patterns(patterns):
             if pattern_type == 'regex':
                 # Retrieve the 'find' patterns
                 find_patterns = column_pattern.get('find', [])
-
-                # Iterate over each 'find' pattern
+                
                 for find_pattern in find_patterns:
-                    try:
-                        # Attempt to compile the 'find' pattern as a regular expression
-                        re.compile(find_pattern)
-                    except re.error:
-                        # If compilation fails, add an error message to validation_errors
-                        validation_errors.append(f"Pattern {i+1}, Column '{pattern['column']}': Invalid regular expression '{find_pattern}'")
-
+                    # Check if the pattern is already compiled, if not, compile it
+                    if find_pattern not in compiled_patterns:
+                        try:
+                            compiled_pattern = re.compile(find_pattern)
+                            compiled_patterns[find_pattern] = compiled_pattern
+                        except re.error:
+                            # If compilation fails, add an error message to validation_errors
+                            validation_errors.append(f"Pattern {i+1}, Column '{pattern['column']}': Invalid regular expression '{find_pattern}'")
+                    
     return validation_errors
 
 def apply_substitution_pattern(column_data, find, replace):
