@@ -139,15 +139,15 @@ def apply_regex_pattern(column_data, find, replace):
     # Apply the regex pattern using a lambda function
     for find_pattern in find:
         try:
+            compiled_pattern = re.compile(find_pattern, flags=re.IGNORECASE)
+            
             column_data = column_data.apply(
                 lambda x: re.sub(
-                    find_pattern,  # Regular expression pattern to search for
-                    replace.format(
-                        text=re.search(find_pattern, str(x), flags=re.IGNORECASE).group(1)  # Extract matched group (if any)
-                        if re.search(find_pattern, str(x), flags=re.IGNORECASE) else ""  # Handle no match scenario
+                    compiled_pattern,  # Regular expression pattern to search for
+                    lambda match: replace.format(
+                        text=match.group(1) if match.group(1) else ""
                     ),
                     str(x),  # Original value
-                    flags=re.IGNORECASE  # Regular expression flags
                 )
             )
         except re.error:
