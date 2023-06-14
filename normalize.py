@@ -2,7 +2,6 @@ import pandas as pd
 import re
 import yaml
 import string
-from IPython.display import display
 
 # This is intended to be run inside Jupyter Notebooks
 
@@ -65,41 +64,46 @@ def read_yaml_file(filename):
         print(f"Unexpected error occurred when reading file {filename}: {e}")
     return None
 
+
 def validate_patterns(patterns):
     validation_errors = []
-    
-    # Compile the regular expression patterns only once
     compiled_patterns = {}
-    
-    # Iterate over each pattern and perform validation checks
+
     for i, pattern in enumerate(patterns):
-        # Check if 'column' and 'patterns' fields are present in the pattern
         if 'column' not in pattern or 'patterns' not in pattern:
             validation_errors.append(f"Pattern {i+1}: Each pattern must have 'column' and 'patterns' fields.")
+            continue
 
-        # Iterate over each column pattern within the pattern
         for column_pattern in pattern.get('patterns', []):
-            # Check if 'find', 'replace', and 'type' fields are present in the column pattern
-            if 'find' not in column_pattern or 'replace' not in column_pattern or 'type' not in column_pattern:
+            if not is_valid_column_pattern(column_pattern):
                 validation_errors.append(f"Pattern {i+1}: Each column pattern must have 'find', 'replace', and 'type' fields.")
+                continue
 
-            # Check if the pattern type is 'regex'
-            pattern_type = column_pattern.get('type')
-            if pattern_type == 'regex':
-                # Retrieve the 'find' patterns
-                find_patterns = column_pattern.get('find', [])
-                
-                for find_pattern in find_patterns:
-                    # Check if the pattern is already compiled, if not, compile it
-                    if find_pattern not in compiled_patterns:
-                        try:
-                            compiled_pattern = re.compile(find_pattern)
-                            compiled_patterns[find_pattern] = compiled_pattern
-                        except re.error:
-                            # If compilation fails, add an error message to validation_errors
-                            validation_errors.append(f"Pattern {i+1}, Column '{pattern['column']}': Invalid regular expression '{find_pattern}'")
-                    
+            if not compile_regex_patterns(column_pattern.get('find', []), compiled_patterns, i, pattern):
+                validation_errors.append(f"Pattern {i+1}, Column '{pattern['column']}': Invalid regular expression.")
+                continue
+
     return validation_errors
+
+
+def is_valid_column_pattern(column_pattern):
+    return all(field in column_pattern for field in ['find', 'replace', 'type'])
+
+
+def compile_regex_patterns(find_patterns, compiled_patterns, pattern_index, pattern):
+    for find_pattern in find_patterns:
+        pattern_type = pattern.get('type')
+        if pattern_type == 'regex' and find_pattern not in compiled_patterns:
+            try:
+                compiled_pattern = re.compile(find_pattern)
+                compiled_patterns[find_pattern] = compiled_pattern
+            except re.error as e:
+                print(f"Error compiling pattern: {find_pattern}")
+                print(f"Pattern: {pattern}")
+                print(f"Pattern Index: {pattern_index}")
+                print(f"Error: {e}")
+                return False
+    return True
 
 def apply_substitution_pattern(column_data, find, replace):
     # Ensure that the find and replace patterns are lists
@@ -131,19 +135,21 @@ def sanitize_input(input_value):
     if isinstance(input_value, list):
         # Handle lists of values
         return [re.sub(f'[{re.escape(string.punctuation)}]', '', value) for value in input_value]
-    else:
-        # Handle individual values
-        return re.sub(f'[{re.escape(string.punctuation)}]', '', input_value)
+    
+    # Handle individual values
+    return re.sub(f'[{re.escape(string.punctuation)}]', '', input_value)
+
 
 def apply_regex_pattern(column_data, find, replace):
+    # Compile the regex pattern outside the loop
+    compiled_patterns = [re.compile(pattern, flags=re.IGNORECASE) for pattern in find]
+
     # Apply the regex pattern using a lambda function
-    for find_pattern in find:
+    for compiled_pattern in compiled_patterns:
         try:
-            compiled_pattern = re.compile(find_pattern, flags=re.IGNORECASE)
-            
             column_data = column_data.apply(
-                lambda x: re.sub(
-                    compiled_pattern,  # Regular expression pattern to search for
+                lambda x, pattern=compiled_pattern: re.sub(
+                    pattern,  # Regular expression pattern to search for
                     lambda match: replace.format(
                         text=match.group(1) if match.group(1) else ""
                     ),
@@ -151,7 +157,7 @@ def apply_regex_pattern(column_data, find, replace):
                 )
             )
         except re.error:
-            print(f"Error in regular expression: {find_pattern}")
+            print(f"Error in regular expression: {compiled_pattern.pattern}")
             continue
     return column_data
 
@@ -196,6 +202,8 @@ def main(csv_file, pattern_file):
     # Apply the patterns to the DataFrame
     df = replace_with_patterns(df, patterns)
     return df, patterns
+
+
 
 if __name__ == "__main__":
     df, patterns = main('data.csv', 'patterns.yml')
