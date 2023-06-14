@@ -44,7 +44,7 @@ def read_patterns_file(filename):
                 print(f"  {error}")
             return []
         return patterns
-    except Exception as e:
+    except (FileNotFoundError, PermissionError, yaml.YAMLError, IOError) as e:
         print(f"Error occurred when reading patterns file: {e}")
         return []
 
