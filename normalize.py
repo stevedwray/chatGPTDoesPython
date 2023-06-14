@@ -81,7 +81,6 @@ def validate_patterns(patterns):
 
             if not compile_regex_patterns(column_pattern.get('find', []), compiled_patterns, i, pattern):
                 validation_errors.append(f"Pattern {i+1}, Column '{pattern['column']}': Invalid regular expression.")
-                continue
 
     return validation_errors
 
