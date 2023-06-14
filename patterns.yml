@@ -1,0 +1,29 @@
+---
+# Example patterns file.
+# column: names the columns that the patterns apply to in the csv
+- column: Particulars
+  patterns: 
+  - find: 
+    - '************'
+    replace: 
+    type: substitution
+- column: Analysis Code
+  patterns: 
+  - find: 
+    - '(\d{4})CASH'
+    replace: '{text}'
+    type: regex
+  - find: 
+    -  '^(.*?)\s+\d{5}$'
+    replace: '{text}'
+    type: regex
+- column: Other Party
+  patterns:
+  - find:
+    - 1250Easy Energy Limi
+    replace: Easy Energy
+    type: substitution
+  - find:
+    - Hell Pizza.*
+    replace: Hell Pizza
+    type: wildcard
