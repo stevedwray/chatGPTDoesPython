@@ -1,6 +1,7 @@
 import pandas as pd
 import re
 import yaml
+import string
 from IPython.display import display
 
 # This is intended to be run inside Jupyter Notebooks
@@ -115,12 +116,24 @@ def apply_substitution_pattern(column_data, find, replace):
     )
 
 def apply_wildcard_pattern(column_data, find, replace):
+    # Validate and sanitize the find and replace values
+    find = sanitize_input(find)
+    replace = sanitize_input(replace)
+
     # Apply the wildcard pattern using a lambda function
     return column_data.apply(
-        lambda x: replace  # Replace with the specified value if any wildcard pattern matches
-        if any(re.search(f.replace('*', '.*'), x, flags=re.IGNORECASE) for f in find)  # Check if any wildcard pattern matches the value
-        else x  # Otherwise, keep the original value
+        lambda x: replace
+        if any(re.search(f.replace('*', '.*'), x, flags=re.IGNORECASE) for f in find)
+        else x
     )
+
+def sanitize_input(input_value):
+    if isinstance(input_value, list):
+        # Handle lists of values
+        return [re.sub(f'[{re.escape(string.punctuation)}]', '', value) for value in input_value]
+    else:
+        # Handle individual values
+        return re.sub(f'[{re.escape(string.punctuation)}]', '', input_value)
 
 def apply_regex_pattern(column_data, find, replace):
     # Apply the regex pattern using a lambda function
