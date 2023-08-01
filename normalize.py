@@ -2,8 +2,7 @@ import pandas as pd
 import re
 import yaml
 import string
-
-# This is intended to be run inside Jupyter Notebooks
+import fnmatch
 
 def read_csv(file_name):
     # Set the max_colwidth option to prevent text wrapping
@@ -64,7 +63,6 @@ def read_yaml_file(filename):
         print(f"Unexpected error occurred when reading file {filename}: {e}")
     return None
 
-
 def validate_patterns(patterns):
     validation_errors = []
     compiled_patterns = {}
@@ -77,7 +75,6 @@ def validate_patterns(patterns):
         for column_pattern in pattern.get('patterns', []):
             if not is_valid_column_pattern(column_pattern):
                 validation_errors.append(f"Pattern {i+1}: Each column pattern must have 'find', 'replace', and 'type' fields.")
-                continue
 
             if not compile_regex_patterns(column_pattern.get('find', []), compiled_patterns, i, pattern):
                 validation_errors.append(f"Pattern {i+1}, Column '{pattern['column']}': Invalid regular expression.")
@@ -112,11 +109,10 @@ def apply_substitution_pattern(column_data, find, replace):
         replace = [replace]
     column_data = column_data.astype(str)  # Convert column to string type
     
-    return column_data.apply(
-        lambda x: ''  # Replace with an empty string if the value matches the find pattern
-        if x.strip() == find[0]  # Check if the value stripped of leading/trailing whitespace matches the find pattern
-        else x  # Otherwise, keep the original value
-    )
+    for find_pattern, replace_pattern in zip(find, replace):
+        column_data = column_data.replace(find_pattern, replace_pattern)
+
+    return column_data
 
 def apply_wildcard_pattern(column_data, find, replace):
     # Validate and sanitize the find and replace values
@@ -133,11 +129,18 @@ def apply_wildcard_pattern(column_data, find, replace):
 def sanitize_input(input_value):
     if isinstance(input_value, list):
         # Handle lists of values
+        return [value.strip() for value in input_value]
+
+    # Handle individual values
+    return input_value.strip()
+
+def sanitize_input_orig(input_value):
+    if isinstance(input_value, list):
+        # Handle lists of values
         return [re.sub(f'[{re.escape(string.punctuation)}]', '', value) for value in input_value]
     
     # Handle individual values
     return re.sub(f'[{re.escape(string.punctuation)}]', '', input_value)
-
 
 def apply_regex_pattern(column_data, find, replace):
     # Compile the regex pattern outside the loop
@@ -202,10 +205,9 @@ def main(csv_file, pattern_file):
     df = replace_with_patterns(df, patterns)
     return df, patterns
 
-
-
 if __name__ == "__main__":
-    df, patterns = main('data.csv', 'patterns.yml')
+    df, patterns = main('JointAccount-08Dec17a.csv', 'patterns.yml')
     if df is not None and patterns is not None:
         # Print the modified DataFrame
-        print(df.head(5))
+        print(df.tail(50))
+        df.to_csv('output.csv', index=False)
